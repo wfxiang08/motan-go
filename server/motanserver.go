@@ -100,14 +100,18 @@ func (m *MotanServer) handleConn(conn net.Conn) {
 func (m *MotanServer) processReq(request *mpro.Message, conn net.Conn) {
 	defer motan.HandlePanic(nil)
 	request.Header.SetProxy(m.proxy)
+
 	// TODO request , response reuse
 	var res *mpro.Message
 	if request.Header.IsHeartbeat() {
 		res = mpro.BuildHeartbeat(request.Header.RequestID, mpro.Res)
 	} else {
 		var mres motan.Response
+
+		// 通过头部制定的序列化方式来获取 serialization
 		serialization := m.extFactory.GetSerialization("", request.Header.GetSerialize())
 		req, err := mpro.ConvertToRequest(request, serialization)
+
 		if err != nil {
 			vlog.Errorf("motan server convert to motan request fail. rid :%d, service: %s, method:%s,err:%s\n", request.Header.RequestID, request.Metadata.LoadOrEmpty(mpro.MPath), request.Metadata.LoadOrEmpty(mpro.MMethod), err.Error())
 			res = mpro.BuildExceptionResponse(request.Header.RequestID, mpro.ExceptionToJSON(&motan.Exception{ErrCode: 500, ErrMsg: "deserialize fail. err:" + err.Error() + " method:" + request.Metadata.LoadOrEmpty(mpro.MMethod), ErrType: motan.ServiceException}))
@@ -118,7 +122,10 @@ func (m *MotanServer) processReq(request *mpro.Message, conn net.Conn) {
 				req.SetAttachment(motan.HostKey, getRemoteIP(conn.RemoteAddr().String()))
 			}
 			req.GetRPCContext(true).ExtFactory = m.extFactory
+
+			// Invoke方法
 			mres = m.handler.Call(req)
+
 			//TODO oneway
 			if mres != nil {
 				mres.GetRPCContext(true).Proxy = m.proxy

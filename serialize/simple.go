@@ -53,6 +53,8 @@ func (s *SimpleSerialization) SerializeMulti(v []interface{}) ([]byte, error) {
 		return nil, nil
 	}
 	buf := motan.NewBytesBuffer(DefaultBufferSize)
+	// 如何序列化多个元素呢？
+	// 没有什么特别的，直接干
 	for _, o := range v {
 		err := serializeBuf(o, buf)
 		if err != nil {
@@ -79,6 +81,7 @@ func serializeBuf(v interface{}, buf *motan.BytesBuffer) error {
 		k = rv.Kind()
 	}
 
+	// 通过反射来实现序列化
 	switch k {
 	case reflect.String:
 		encodeString(rv.String(), buf)

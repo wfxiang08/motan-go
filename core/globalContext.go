@@ -75,8 +75,14 @@ var (
 func (c *Context) confToURLs(section string) map[string]*URL {
 	urls := map[string]*URL{}
 	sectionConf, _ := c.Config.GetSection(section)
+
 	for key, info := range sectionConf {
 		url := confToURL(info.(map[interface{}]interface{}))
+
+		// 这代码写的？
+		// key.(string)
+		// InterfaceToString(key)
+		//
 		url.Parameters[URLConfKey] = InterfaceToString(key)
 		urls[key.(string)] = url
 	}
@@ -124,6 +130,7 @@ func (c *Context) Initialize() {
 	if c.ConfigFile == "" { // use flag as default config file name
 		c.ConfigFile = *CfgFile
 	}
+
 	var cfgRs *cfg.Config
 	var err error
 	if *Pool != "" { // parse application pool configs
@@ -265,6 +272,12 @@ func (c *Context) parseHostURL() {
 }
 
 func (c *Context) parseRegistrys() {
+	//motan-registry:
+	//direct-registry: # registry id
+	//	protocol: direct   # registry type. will get instance from extFactory.
+	//		host: 127.0.0.1 # direct server ip in single ip. if has host, address will disable.
+	//		port: 8012 #direct server port
+	// URLs: direct-registry 等
 	c.RegistryURLs = c.confToURLs(registrysSection)
 }
 

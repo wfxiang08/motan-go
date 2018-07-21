@@ -16,8 +16,9 @@ import (
 
 // MSContext is Motan Server Context
 type MSContext struct {
-	confFile     string
-	context      *motan.Context
+	confFile string
+	context  *motan.Context
+
 	extFactory   motan.ExtentionFactory
 	portService  map[int]motan.Exporter
 	portServer   map[int]motan.Server
@@ -42,22 +43,30 @@ var (
 // a motan server context can listen multi ports and provide many services. so a single motan server context is suggested
 // default context will be used if confFile is empty
 func GetMotanServerContext(confFile string) *MSContext {
+
+	// 如何确保flag只Parse一次？
 	if !flag.Parsed() {
 		flag.Parse()
 	}
+
 	serverContextMutex.Lock()
 	defer serverContextMutex.Unlock()
+
 	ms := serverContextMap[confFile]
 	if ms == nil {
 
 		ms = &MSContext{confFile: confFile}
 		serverContextMap[confFile] = ms
+
+		// 如何初始化Context
 		motan.Initialize(ms)
+
 		section, err := ms.context.Config.GetSection("motan-server")
 		if err != nil {
 			fmt.Println("get config of \"motan-server\" fail! err " + err.Error())
 		}
 
+		// 初始化Log
 		logdir := ""
 		if section != nil && section["log_dir"] != nil {
 			logdir = section["log_dir"].(string)
@@ -153,7 +162,9 @@ func (m *MSContext) export(url *motan.URL) {
 func (m *MSContext) Initialize() {
 	m.csync.Lock()
 	defer m.csync.Unlock()
+
 	if !m.inited {
+		// 初始化Context
 		m.context = &motan.Context{ConfigFile: m.confFile}
 		m.context.Initialize()
 
@@ -172,18 +183,24 @@ func (m *MSContext) RegisterService(s interface{}, sid string) error {
 		vlog.Errorln("MSContext register service is nil!")
 		return errors.New("register service is nil")
 	}
+
+	// 如何注册服务呢？
 	v := reflect.ValueOf(s)
 	if v.Kind() != reflect.Ptr {
 		vlog.Errorf("register service must be a pointer of struct. service:%+v\n", s)
 		return errors.New("register service must be a pointer of struct")
 	}
 	t := v.Elem().Type()
+
 	hasConfig := false
 	ref := sid
 	if ref == "" {
+		// 默认直接使用类名来处理，例如： main.Motan2TestService
 		ref = t.String()
 	}
+
 	// check export config
+	// ref优点类似Spring IOC，代码有点点脏
 	for _, url := range m.context.ServiceURLs {
 		if url.Parameters != nil && ref == url.Parameters[motan.RefKey] {
 			hasConfig = true
@@ -220,6 +237,7 @@ func canShareChannel(u1 motan.URL, u2 motan.URL) bool {
 
 func availableService(registries map[string]motan.Registry) {
 	defer motan.HandlePanic(nil)
+
 	if registries != nil {
 		for _, r := range registries {
 			r.Available(nil)

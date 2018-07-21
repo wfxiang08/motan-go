@@ -25,6 +25,7 @@ func (g *GrpcPbSerialization) SerializeMulti(v []interface{}) ([]byte, error) {
 		return nil, ErrNilParam
 	}
 	if len(v) == 1 {
+		// gRPC不支持序列化多个元素
 		return g.Serialize(v[0])
 	}
 	return nil, ErrMultiParam
@@ -34,6 +35,9 @@ func (g *GrpcPbSerialization) Serialize(v interface{}) ([]byte, error) {
 	if v == nil {
 		return nil, ErrNilParam
 	}
+
+	// v: 普通的对象转为interface{}
+	//    reflect.Value
 	if message, ok := v.(proto.Message); ok {
 		return proto.Marshal(message)
 	}

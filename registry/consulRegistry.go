@@ -6,6 +6,7 @@ import (
 	motan "github.com/weibocom/motan-go/core"
 )
 
+// FUCK 太偷懒了
 // ConsulRegistry TODO implement
 type ConsulRegistry struct {
 	url           *motan.URL

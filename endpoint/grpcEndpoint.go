@@ -22,7 +22,9 @@ const (
 )
 
 func (g *GrpcEndPoint) Initialize() {
-	grpcconn, err := grpc.Dial((g.url.Host + ":" + strconv.Itoa((int)(g.url.Port))), grpc.WithInsecure(), grpc.WithCodec(&agentCodec{}))
+	// 不适用https的gRPC
+	grpcconn, err := grpc.Dial((g.url.Host + ":" + strconv.Itoa((int)(g.url.Port))),
+		grpc.WithInsecure(), grpc.WithCodec(&agentCodec{}))
 	if err != nil {
 		vlog.Errorf("connect to grpc fail! url:%s, err:%s\n", g.url.GetIdentity(), err.Error())
 	}
@@ -30,6 +32,7 @@ func (g *GrpcEndPoint) Initialize() {
 }
 
 func (g *GrpcEndPoint) Destroy() {
+	// 关闭Connection
 	if g.grpcConn != nil {
 		vlog.Infof("grpc endpoint %s will destroyed", g.url.GetAddressStr())
 		g.grpcConn.Close()
@@ -40,6 +43,7 @@ func (g *GrpcEndPoint) SetProxy(proxy bool) {
 	g.proxy = proxy
 }
 
+// 不支持序列化的定制
 func (g *GrpcEndPoint) SetSerialization(s motan.Serialization) {}
 
 func (g *GrpcEndPoint) Call(request motan.Request) motan.Response {
@@ -53,12 +57,16 @@ func (g *GrpcEndPoint) Call(request motan.Request) motan.Response {
 		vlog.Errorf("can not process argument in grpc endpoint. argument:%v\n", request.GetArguments()[0])
 		return motan.BuildExceptionResponse(request.GetRequestID(), &motan.Exception{ErrCode: 500, ErrMsg: "grpc argument must be []byte", ErrType: motan.ServiceException})
 	}
+
 	out := new(OutMsg)
 
 	var header, trailer metadata.MD
 	md := metadata.New(request.GetAttachments().RawMap())
 	ctx := metadata.NewOutgoingContext(context.Background(), md)
+
+	// 调用gRPC服务
 	err := grpc.Invoke(ctx, "/"+request.GetServiceName()+"/"+request.GetMethod(), in, out, g.grpcConn, grpc.Header(&header), grpc.Trailer(&trailer))
+
 	// type MD map[string][]string
 	resp := &motan.MotanResponse{Attachment: motan.NewStringMap(motan.DefaultAttachmentSize)}
 	resp.RequestID = request.GetRequestID()
@@ -74,6 +82,8 @@ func (g *GrpcEndPoint) Call(request motan.Request) motan.Response {
 		resp.Exception = &motan.Exception{ErrCode: errcode, ErrMsg: grpc.ErrorDesc(err), ErrType: errcode}
 		return resp
 	}
+
+	// 如何理解out的使用呢？
 	resp.Value = (*out).buf
 	return resp
 }
@@ -109,6 +119,8 @@ func (agentCodec) Marshal(v interface{}) ([]byte, error) {
 
 func (agentCodec) Unmarshal(data []byte, v interface{}) error {
 	var err error
+
+	// 如何处理OutMsg呢？
 	om := v.(*OutMsg)
 	om.buf = data
 	return err

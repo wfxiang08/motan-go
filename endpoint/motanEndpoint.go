@@ -58,9 +58,14 @@ func (m *MotanEndpoint) Initialize() {
 	connectTimeout := m.url.GetTimeDuration("connectTimeout", time.Millisecond, defaultConnectTimeout)
 
 	factory := func() (net.Conn, error) {
+		// 直接构建一个tcp网络请求
+		// 如何做负载均衡呢？
 		return net.DialTimeout("tcp", m.url.GetAddressStr(), connectTimeout)
 	}
+
+	// 创建channels/factory
 	channels, err := NewChannelPool(defaultChannelPoolSize, factory, nil, m.serialization)
+
 	if err != nil {
 		vlog.Errorf("Channel pool init failed. err:%s\n", err.Error())
 		// retry connect
@@ -69,6 +74,8 @@ func (m *MotanEndpoint) Initialize() {
 			ticker := time.NewTicker(60 * time.Second)
 			defer ticker.Stop()
 			for {
+				// 出错的情况下异步重建Channels？
+				// Channels创建好了之后，如果再出错，如何处理呢？
 				select {
 				case <-ticker.C:
 					channels, err := NewChannelPool(defaultChannelPoolSize, factory, nil, m.serialization)
@@ -104,6 +111,7 @@ func (m *MotanEndpoint) Call(request motan.Request) motan.Response {
 	rc.Proxy = m.proxy
 	rc.GzipSize = int(m.url.GetIntValue(motan.GzipSizeKey, 0))
 
+	// 如果channels为空，则直接报错，返回
 	if m.channels == nil {
 		vlog.Errorf("motanEndpoint %s error: channels is null\n", m.url.GetAddressStr())
 		m.recordErrAndKeepalive()
@@ -113,6 +121,7 @@ func (m *MotanEndpoint) Call(request motan.Request) motan.Response {
 	if rc != nil && rc.AsyncCall {
 		rc.Result.StartTime = startTime
 	}
+
 	// get a channel
 	channel, err := m.channels.Get()
 	if err != nil {
@@ -120,6 +129,7 @@ func (m *MotanEndpoint) Call(request motan.Request) motan.Response {
 		m.recordErrAndKeepalive()
 		return m.defaultErrMotanResponse(request, "can not get a channel")
 	}
+
 	// get request timeout
 	deadline := m.url.GetTimeDuration("requestTimeout", time.Millisecond, defaultRequestTimeout)
 
@@ -129,6 +139,7 @@ func (m *MotanEndpoint) Call(request motan.Request) motan.Response {
 		request.SetAttachment(mpro.MGroup, m.url.Group)
 	}
 
+	// 封装成为MotanMessage
 	var msg *mpro.Message
 	msg, err = mpro.ConvertToReqMessage(request, m.serialization)
 
@@ -136,7 +147,10 @@ func (m *MotanEndpoint) Call(request motan.Request) motan.Response {
 		vlog.Errorf("convert motan request fail! ep: %s, req: %s, err:%s\n", m.url.GetAddressStr(), motan.GetReqInfo(request), err.Error())
 		return motan.BuildExceptionResponse(request.GetRequestID(), &motan.Exception{ErrCode: 500, ErrMsg: "convert motan request fail!", ErrType: motan.ServiceException})
 	}
+
+	// 通过channel来调用
 	recvMsg, err := channel.Call(msg, deadline, rc)
+
 	if err != nil {
 		vlog.Errorf("motanEndpoint call fail. ep:%s, req:%s, msgid:%d, error: %s\n", m.url.GetAddressStr(), motan.GetReqInfo(request), msg.Header.RequestID, err.Error())
 		m.recordErrAndKeepalive()
@@ -145,6 +159,7 @@ func (m *MotanEndpoint) Call(request motan.Request) motan.Response {
 	if rc != nil && rc.AsyncCall {
 		return defaultAsyncResponse
 	}
+
 	recvMsg.Header.SetProxy(m.proxy)
 	response, err := mpro.ConvertToResponse(recvMsg, m.serialization)
 	if err != nil {
@@ -458,6 +473,7 @@ func (c *Channel) send() {
 				// TODO need async?
 				sent := 0
 				for sent < len(ready.data) {
+					// 使用长连接？
 					n, err := c.conn.Write(ready.data[sent:])
 					if err != nil {
 						vlog.Errorf("Failed to write channel. ep: %s, err: %s\n", c.address, err.Error())
@@ -541,14 +557,18 @@ func (c *ChannelPool) Get() (*Channel, error) {
 	if channels == nil {
 		return nil, errors.New("channels is nil")
 	}
+
+	// 读取一个Channels
 	channel, ok := <-channels
 	if ok && (channel == nil || channel.IsClosed()) {
-		conn, err := c.factory()
+		conn, err := c.factory() // 构建一个连接？
 		if err != nil {
 			vlog.Errorf("create channel failed. err:%s\n", err.Error())
 		}
+		// 如何重建一个Channel呢？
 		channel = buildChannel(conn, c.config, c.serialization)
 	}
+
 	if err := retChannelPool(channels, channel); err != nil && channel != nil {
 		channel.closeOnErr(err)
 	}
@@ -558,6 +578,7 @@ func (c *ChannelPool) Get() (*Channel, error) {
 	return channel, nil
 }
 
+// 将channel放回到channels中，chanel本身支持多线程
 func retChannelPool(channels chan *Channel, channel *Channel) (error error) {
 	defer func() {
 		if err := recover(); err != nil {
@@ -621,6 +642,8 @@ func buildChannel(conn net.Conn, config *Config, serialization motan.Serializati
 	if err := VerifyConfig(config); err != nil {
 		return nil
 	}
+
+	// 基于某个连接，构建一个Channel
 	channel := &Channel{
 		conn:          conn,
 		config:        config,

@@ -21,6 +21,8 @@ const (
 
 var idOffset uint64 // id generator offset
 
+// 默认支持三种EndPoint
+// gRPC可以关注一下
 func RegistDefaultEndpoint(extFactory motan.ExtentionFactory) {
 	extFactory.RegistExtEndpoint(Motan2, func(url *motan.URL) motan.EndPoint {
 		return &MotanEndpoint{url: url}
@@ -35,6 +37,7 @@ func RegistDefaultEndpoint(extFactory motan.ExtentionFactory) {
 	})
 }
 
+// 新版本的接口通过MGroup来操作
 func GetRequestGroup(r motan.Request) string {
 	group := r.GetAttachment(mpro.MGroup)
 	if group == "" {
@@ -43,6 +46,8 @@ func GetRequestGroup(r motan.Request) string {
 	return group
 }
 
+// 如何生成RequestID
+// 时间 + offset
 func GenerateRequestID() uint64 {
 	ms := uint64(time.Now().UnixNano())
 	offset := atomic.AddUint64(&idOffset, 1)
@@ -74,6 +79,7 @@ func (m *MockEndpoint) SetProxy(proxy bool) {}
 
 func (m *MockEndpoint) SetSerialization(s motan.Serialization) {}
 
+// 如何MockEndpoint呢？
 func (m *MockEndpoint) Call(request motan.Request) motan.Response {
 	if m.MockResponse != nil {
 		return m.MockResponse

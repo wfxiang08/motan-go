@@ -14,11 +14,14 @@ func main() {
 func runClientDemo() {
 	mccontext := motan.GetClientContext("./clientdemo.yaml")
 	mccontext.Start(nil)
+
 	mclient := mccontext.GetClient("mytest-motan2")
 
 	args := make(map[string]string, 16)
 	args["name"] = "ray"
 	args["id"] = "xxxx"
+
+	// 是否支持其他类型呢？
 	var reply string
 	err := mclient.Call("hello", []interface{}{args}, &reply)
 	if err != nil {

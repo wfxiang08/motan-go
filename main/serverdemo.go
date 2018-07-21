@@ -14,13 +14,17 @@ func main() {
 
 func runServerDemo() {
 	mscontext := motan.GetMotanServerContext("./serverdemo.yaml")
+
+	// 注册服务
 	mscontext.RegisterService(&Motan2TestService{}, "")
 	mscontext.RegisterService(&MotanDemoService{}, "")
+
 	mscontext.Start(nil)
 	mscontext.ServicesAvailable() //注册服务后，默认并不提供服务，调用此方法后才会正式提供服务。需要根据实际使用场景决定提供服务的时机。作用与java版本中的服务端心跳开关一致。
 	time.Sleep(time.Second * 50000000)
 }
 
+// 如何定义Motan服务呢？
 type MotanDemoService struct{}
 
 func (m *MotanDemoService) Hello(name string) string {
@@ -28,6 +32,7 @@ func (m *MotanDemoService) Hello(name string) string {
 	return "hello " + name
 }
 
+// 如何定义Motan服务呢？
 type Motan2TestService struct{}
 
 func (m *Motan2TestService) Hello(params map[string]string) string {

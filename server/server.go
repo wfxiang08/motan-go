@@ -132,12 +132,16 @@ func (d *DefaultMessageHandler) Call(request motan.Request) (res motan.Response)
 		res = motan.BuildExceptionResponse(request.GetRequestID(), &motan.Exception{ErrCode: 500, ErrMsg: "provider call panic", ErrType: motan.ServiceException})
 		vlog.Errorf("provider call panic. req:%s\n", motan.GetReqInfo(request))
 	})
+
+	// 通过ServiceName获取Provider
 	p := d.providers[request.GetServiceName()]
 	if p != nil {
 		res = p.Call(request)
 		res.GetRPCContext(true).GzipSize = int(p.GetURL().GetIntValue(motan.GzipSizeKey, 0))
 		return res
 	}
+
+	// 报错处理
 	vlog.Errorf("not found provider for %s\n", motan.GetReqInfo(request))
 	return motan.BuildExceptionResponse(request.GetRequestID(), &motan.Exception{ErrCode: 500, ErrMsg: "not found provider for " + request.GetServiceName(), ErrType: motan.ServiceException})
 }

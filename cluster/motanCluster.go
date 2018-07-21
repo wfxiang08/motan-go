@@ -52,9 +52,12 @@ func (m *MotanCluster) Call(request motan.Request) (res motan.Response) {
 		res = motan.BuildExceptionResponse(request.GetRequestID(), &motan.Exception{ErrCode: 500, ErrMsg: "cluster call panic", ErrType: motan.ServiceException})
 		vlog.Errorf("cluster call panic. req:%s\n", motan.GetReqInfo(request))
 	})
+
+	// 首先服务整体可用
 	if m.available {
 		return m.clusterFilter.Filter(m.HaStrategy, m.LoadBalance, request)
 	}
+
 	vlog.Infoln("cluster:" + m.GetIdentity() + "is not available!")
 	return motan.BuildExceptionResponse(request.GetRequestID(), &motan.Exception{ErrCode: 500, ErrMsg: "cluster not available, maybe caused by degrade", ErrType: motan.ServiceException})
 }
@@ -110,6 +113,7 @@ func (m *MotanCluster) Notify(registryURL *motan.URL, urls []*motan.URL) {
 	defer m.notifyLock.Unlock()
 	// process weight if has
 	urls = processWeight(m, urls)
+
 	endpoints := make([]motan.EndPoint, 0, len(urls))
 	endpointMap := make(map[string]motan.EndPoint)
 	if eps, ok := m.registryRefers[registryURL.GetIdentity()]; ok {
@@ -147,6 +151,8 @@ func (m *MotanCluster) Notify(registryURL *motan.URL, urls []*motan.URL) {
 					ep.SetSerialization(serialization)
 				}
 				motan.Initialize(ep)
+
+				// ep前端添加Filters
 				ep = m.addFilter(ep, m.Filters)
 			}
 		}
@@ -228,12 +234,14 @@ func (m *MotanCluster) SetExtFactory(factory motan.ExtentionFactory) {
 }
 
 func (m *MotanCluster) parseRegistry() (err error) {
+	// 获取URL的注册方式？如何注册的？
 	regs, ok := m.url.Parameters[motan.RegistryKey]
 	if !ok {
 		errInfo := fmt.Sprintf("registry not found! url %+v", m.url)
 		err = errors.New(errInfo)
 		vlog.Errorln(errInfo)
 	}
+
 	arr := strings.Split(regs, ",")
 	registries := make([]motan.Registry, 0, len(arr))
 	for _, r := range arr {
@@ -243,6 +251,7 @@ func (m *MotanCluster) parseRegistry() (err error) {
 				if _, ok := registry.(motan.DiscoverCommand); ok {
 					registry = GetCommandRegistryWarper(m, registry)
 				}
+				// 获取registry, 并且获取URLS
 				registry.Subscribe(m.url, m)
 				registries = append(registries, registry)
 				urls := registry.Discover(m.url)

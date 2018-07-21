@@ -567,9 +567,9 @@ type DefaultExtentionFactory struct {
 	filterFactories   map[string]DefaultFilterFunc
 	haFactories       map[string]NewHaFunc
 	lbFactories       map[string]NewLbFunc
-	endpointFactories map[string]NewEndpointFunc
-	providerFactories map[string]NewProviderFunc
-	registryFactories map[string]NewRegistryFunc
+	endpointFactories map[string]NewEndpointFunc // 如何创建Endpoint呢？
+	providerFactories map[string]NewProviderFunc // 如何创建Provider？
+	registryFactories map[string]NewRegistryFunc // 如何创建Registry
 	servers           map[string]NewServerFunc
 	messageHandlers   map[string]NewMessageHandlerFunc
 	serializations    map[string]NewSerializationFunc
@@ -725,6 +725,7 @@ func (d *DefaultExtentionFactory) RegistryExtSerialization(name string, id int, 
 	d.serializations[strconv.Itoa(id)] = newSerialization
 }
 
+// 创建各种Map
 func (d *DefaultExtentionFactory) Initialize() {
 	d.filterFactories = make(map[string]DefaultFilterFunc)
 	d.haFactories = make(map[string]NewHaFunc)
@@ -757,6 +758,7 @@ func GetLastClusterFilter() ClusterFilter {
 	return lcf
 }
 
+// 最后的EndPointFilter
 type lastEndPointFilter struct{}
 
 func (l *lastEndPointFilter) GetName() string {
@@ -776,6 +778,7 @@ func (l *lastEndPointFilter) HasNext() bool {
 }
 
 func (l *lastEndPointFilter) SetNext(nextFilter EndPointFilter) {
+	// 封装caller, 不再接受新的Filter
 	vlog.Errorf("should not set next in lastEndPointFilter! filer:%s\n", nextFilter.GetName())
 }
 func (l *lastEndPointFilter) GetNext() EndPointFilter {
@@ -788,6 +791,7 @@ func (l *lastEndPointFilter) GetType() int32 {
 	return EndPointFilterType
 }
 
+// 最后的ClusterFilter
 type lastClusterFilter struct{}
 
 func (l *lastClusterFilter) GetName() string {

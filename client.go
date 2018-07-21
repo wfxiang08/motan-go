@@ -33,7 +33,9 @@ type Client struct {
 }
 
 func (c *Client) Call(method string, args []interface{}, reply interface{}) error {
+	// 如何理解args和reply呢？
 	req := c.BuildRequest(method, args)
+
 	return c.BaseCall(req, reply)
 }
 
@@ -41,6 +43,8 @@ func (c *Client) BaseCall(req motan.Request, reply interface{}) error {
 	rc := req.GetRPCContext(true)
 	rc.ExtFactory = c.extFactory
 	rc.Reply = reply
+
+	// 通过cluster来调用Reuqest请求
 	res := c.cluster.Call(req)
 	if res.GetException() != nil {
 		return errors.New(res.GetException().ErrMsg)
@@ -73,7 +77,10 @@ func (c *Client) BaseGo(req motan.Request, reply interface{}, done chan *motan.A
 }
 
 func (c *Client) BuildRequest(method string, args []interface{}) motan.Request {
+	// 构建Request，基本不做任何检测！！
 	req := &motan.MotanRequest{Method: method, ServiceName: c.url.Path, Arguments: args, Attachment: motan.NewStringMap(motan.DefaultAttachmentSize)}
+
+	// 设置Attachment
 	version := c.url.GetParam(motan.VersionKey, "")
 	if version != "" {
 		req.SetAttachment(mpro.MVersion, version)
@@ -144,6 +151,8 @@ func (m *MCContext) Start(extfactory motan.ExtentionFactory) {
 		c.SetExtFactory(m.extFactory)
 		c.Context = m.context
 		c.InitCluster()
+
+		// 创建clients？
 		m.clients[key] = &Client{url: url, cluster: c, extFactory: m.extFactory}
 	}
 }

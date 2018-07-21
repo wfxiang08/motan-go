@@ -95,6 +95,7 @@ func (br *BackupRequestHA) Call(request motan.Request, loadBalance motan.LoadBal
 		go func(postRequest motan.Request, endpoint motan.EndPoint, errorCh chan motan.Response) {
 			defer motan.HandlePanic(nil)
 			start := time.Now().UnixNano()
+			// 具体执行
 			response := br.doCall(postRequest, endpoint)
 			if response != nil && (response.GetException() == nil || response.GetException().ErrType == motan.BizException) {
 				successCh <- response

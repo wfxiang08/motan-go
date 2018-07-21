@@ -52,6 +52,8 @@ type Header struct {
 	RequestID     uint64
 }
 
+// 消息格式：
+// 头部信息，Meta信息，body
 type Message struct {
 	Header   *Header
 	Metadata *motan.StringMap
@@ -230,6 +232,9 @@ func BuildHeader(msgType int, proxy bool, serialize int, requestID uint64, msgSt
 
 func (msg *Message) Encode() (buf *motan.BytesBuffer) {
 	metabuf := motan.NewBytesBuffer(256)
+
+	// 如何编码Message呢？
+	// Metadata: string --> string
 	msg.Metadata.Range(func(k, v string) bool {
 		if k == "" || v == "" {
 			return true
@@ -250,6 +255,8 @@ func (msg *Message) Encode() (buf *motan.BytesBuffer) {
 	}
 	metasize := metabuf.Len()
 	bodysize := len(msg.Body)
+
+	// Body数据，其他元原信息
 	buf = motan.NewBytesBuffer(int(HeaderLength + bodysize + metasize + 8))
 	// encode header.
 	buf.WriteUint16(MotanMagic)
@@ -420,9 +427,11 @@ func ConvertToRequest(request *Message, serialize motan.Serialization) (motan.Re
 	motanRequest.Method = request.Metadata.LoadOrEmpty(MMethod)
 	motanRequest.MethodDesc = request.Metadata.LoadOrEmpty(MMethodDesc)
 	motanRequest.Attachment = request.Metadata
+
 	rc := motanRequest.GetRPCContext(true)
 	rc.OriginalMessage = request
 	rc.Proxy = request.Header.IsProxy()
+
 	if request.Body != nil && len(request.Body) > 0 {
 		if request.Header.IsGzip() {
 			request.Body = DecodeGzipBody(request.Body)

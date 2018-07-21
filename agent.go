@@ -79,9 +79,11 @@ func (a *Agent) StartMotanAgent() {
 	a.SetSanpshotConf()
 	a.initAgentURL()
 	a.initClusters()
+
 	a.startServerAgent()
 	go a.startMServer()
 	go a.registerAgent()
+
 	f, err := os.Create(a.pidfile)
 	if err != nil {
 		vlog.Errorf("create file %s fail.\n", a.pidfile)
@@ -250,6 +252,8 @@ func (a *agentMessageHandler) Call(request motan.Request) (res motan.Response) {
 	if request.GetAttachment(mpro.MVersion) != "" {
 		version = request.GetAttachment(mpro.MVersion)
 	}
+
+	// 获取Cluster？
 	ck := getClusterKey(request.GetAttachment(mpro.MGroup), version, request.GetAttachment(mpro.MProxyProtocol), request.GetAttachment(mpro.MPath))
 	if motanCluster := a.agent.clustermap[ck]; motanCluster != nil {
 		res = motanCluster.Call(request)

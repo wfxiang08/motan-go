@@ -52,10 +52,15 @@ func (c *ClusterMetricsFilter) GetNext() motan.ClusterFilter {
 func (c *ClusterMetricsFilter) Filter(haStrategy motan.HaStrategy, loadBalance motan.LoadBalance, request motan.Request) motan.Response {
 	start := time.Now()
 
+	// 通过调用链来执行下一步
+	// ClusterMetricsFilter 只是做了Metric相关的处理
+	// 使用时时什么工作来做Metric的记录呢？
 	response := c.GetNext().Filter(haStrategy, loadBalance, request)
 
 	mP := strings.Replace(request.GetAttachment("M_p"), ".", "_", -1)
 	key := fmt.Sprintf("motan-client-agent:%s:%s.cluster:%s:%s", request.GetAttachment("M_s"), request.GetAttachment("M_g"), mP, request.GetMethod())
+
+	// 使用的是什么的方式来记录Metrics？
 	keyCount := key + ".total_count"
 	metrics.AddCounter(keyCount, 1) //total_count
 
@@ -78,6 +83,7 @@ func (c *ClusterMetricsFilter) Filter(haStrategy motan.HaStrategy, loadBalance m
 		metrics.AddCounter(key+".slow_count", 1)
 	}
 
+	// 统计.99之类的吧？
 	metrics.AddHistograms(key, cost)
 	return response
 }
